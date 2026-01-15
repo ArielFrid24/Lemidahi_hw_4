@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.vscode/
+.env
+.venv/
+venv/
+
+gan_out/
+vae_out/
+hw4_out/
