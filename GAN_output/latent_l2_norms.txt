@@ -1,0 +1,11 @@
+Similar Pairs (Small L2 Distance):
+==================================================
+Pair 1: Image 70 <-> Image 91, L2 Distance: 10.8899
+Pair 2: Image 22 <-> Image 28, L2 Distance: 10.9239
+Pair 3: Image 78 <-> Image 91, L2 Distance: 10.9508
+
+Dissimilar Pairs (Large L2 Distance):
+==================================================
+Pair 1: Image 38 <-> Image 23, L2 Distance: 13.5296
+Pair 2: Image 38 <-> Image 13, L2 Distance: 13.3473
+Pair 3: Image 38 <-> Image 14, L2 Distance: 13.7997

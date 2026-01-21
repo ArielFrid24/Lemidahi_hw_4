@@ -10,3 +10,14 @@ gan_out/
 vae_out/
 hw4_out/
 102flowers.tgz
+
+# big archives
+*.tgz
+*.png
+*.pkl
+Tutorial10_GAN.ipynb
+CHANGES.md
+FIX_EXPLANATION.md
+GAN_by_Altmans.py
+GENERATION_README.md
+TRAINING_LOOP_FIX.md
