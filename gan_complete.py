@@ -185,29 +185,27 @@ def plot_losses(d_losses: List[float], g_losses: List[float],
 
 
 def analyze_latent_space(generator: Generator, z_dim: int, device: str, 
-                         out_dir: str, num_samples: int = 100) -> None:
+                         out_dir: str, num_images: int = 20) -> None:
     """
-    Generate images and analyze similar/dissimilar pairs based on latent vectors.
+    Generate random images and visualize them in PCA latent space.
     
     This function:
-    1. Generates a pool of images from random latent vectors
-    2. Computes L2 distances between all pairs of latent vectors
-    3. Identifies 3 most similar and 3 most dissimilar pairs
-    4. Visualizes the latent vectors using PCA
-    5. Saves the analysis plot and L2 norms
+    1. Generates random latent vectors and corresponding images
+    2. Projects latent vectors to 2D using PCA
+    3. Displays images at their PCA coordinates
     
     Args:
         generator: Trained generator model
         z_dim: Dimension of latent space
         device: Device to run on
         out_dir: Output directory for saving results
-        num_samples: Number of images to generate for analysis
+        num_images: Number of images to generate and visualize (default: 16)
     """
-    print("\nAnalyzing latent space...")
+    print(f"\nAnalyzing latent space with {num_images} images...")
     generator.eval()
     
-    # Generate pool of latent vectors
-    z_vectors = torch.randn(num_samples, z_dim, device=device)
+    # Generate random latent vectors
+    z_vectors = torch.randn(num_images, z_dim, device=device)
     
     # Generate images
     with torch.no_grad():
@@ -215,134 +213,51 @@ def analyze_latent_space(generator: Generator, z_dim: int, device: str,
         generated_images = (generated_images + 1) / 2.0  # Convert to [0, 1]
         generated_images = torch.clamp(generated_images, 0, 1)
     
-    # Compute pairwise L2 distances in latent space
-    z_cpu = z_vectors.cpu().numpy()
-    n = z_cpu.shape[0]
-    distances = np.zeros((n, n))
-    
-    for i in range(n):
-        for j in range(i+1, n):
-            dist = np.linalg.norm(z_cpu[i] - z_cpu[j])
-            distances[i, j] = dist
-            distances[j, i] = dist
-    
-    # Find similar and dissimilar pairs (avoid diagonal and duplicates)
-    mask = np.triu(np.ones_like(distances), k=1).astype(bool)
-    masked_distances = distances.copy()
-    masked_distances[~mask] = np.inf
-    
-    # Get 3 most similar pairs (smallest L2 distance)
-    similar_pairs = []
-    distances_flat = masked_distances.flatten()
-    indices_flat = np.argsort(distances_flat)
-    
-    for idx in indices_flat:
-        i, j = np.unravel_index(idx, distances.shape)
-        if distances[i, j] != np.inf and len(similar_pairs) < 3:
-            similar_pairs.append((i, j, distances[i, j]))
-    
-    # Get 3 most dissimilar pairs (largest L2 distance)
-    dissimilar_pairs = []
-    indices_flat_desc = np.argsort(-distances_flat)
-    
-    for idx in indices_flat_desc:
-        i, j = np.unravel_index(idx, distances.shape)
-        if distances[i, j] != np.inf and len(dissimilar_pairs) < 3:
-            dissimilar_pairs.append((i, j, distances[i, j]))
-    
-    # Save L2 norms to file
-    l2_norms_path = os.path.join(out_dir, "latent_l2_norms.txt")
-    with open(l2_norms_path, 'w') as f:
-        f.write("Similar Pairs (Small L2 Distance):\n")
-        f.write("="*50 + "\n")
-        for idx, (i, j, dist) in enumerate(similar_pairs, 1):
-            f.write(f"Pair {idx}: Image {i} <-> Image {j}, L2 Distance: {dist:.4f}\n")
-        
-        f.write("\nDissimilar Pairs (Large L2 Distance):\n")
-        f.write("="*50 + "\n")
-        for idx, (i, j, dist) in enumerate(dissimilar_pairs, 1):
-            f.write(f"Pair {idx}: Image {i} <-> Image {j}, L2 Distance: {dist:.4f}\n")
-    
-    print(f"Saved L2 norms to {l2_norms_path}")
-    
     # Use PCA to project latent vectors to 2D for visualization
     from sklearn.decomposition import PCA
+    from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+    
+    z_cpu = z_vectors.cpu().numpy()
     pca = PCA(n_components=2)
     z_2d = pca.fit_transform(z_cpu)
     
+    # Calculate plot limits with margin
+    x_min, x_max = z_2d[:, 0].min(), z_2d[:, 0].max()
+    y_min, y_max = z_2d[:, 1].min(), z_2d[:, 1].max()
+    margin = 0.15 * max(x_max - x_min, y_max - y_min)
+    
     # Create visualization
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     
-    # Plot 1: Latent space with similar/dissimilar pairs highlighted
-    ax1.scatter(z_2d[:, 0], z_2d[:, 1], c='lightgray', s=30, alpha=0.5, label='All samples')
+    # Function to add image to plot
+    def add_image_to_plot(img_tensor, x, y, zoom=0.8):
+        """Add an image at specified coordinates"""
+        img_np = img_tensor.cpu().permute(1, 2, 0).numpy()
+        imagebox = OffsetImage(img_np, zoom=zoom)
+        ab = AnnotationBbox(imagebox, (x, y), frameon=True, 
+                           pad=0.1, bboxprops=dict(edgecolor='black', linewidth=2))
+        ax.add_artist(ab)
     
-    # Plot similar pairs
-    for idx, (i, j, dist) in enumerate(similar_pairs, 1):
-        ax1.plot([z_2d[i, 0], z_2d[j, 0]], [z_2d[i, 1], z_2d[j, 1]], 
-                'g-', linewidth=2, alpha=0.7)
-        ax1.scatter([z_2d[i, 0], z_2d[j, 0]], [z_2d[i, 1], z_2d[j, 1]], 
-                   c='green', s=100, marker='o', edgecolors='black', linewidth=2,
-                   label=f'Similar pair {idx}' if idx == 1 else '')
+    # Plot each image at its PCA coordinate
+    for i in range(num_images):
+        add_image_to_plot(generated_images[i], z_2d[i, 0], z_2d[i, 1], zoom=0.8)
     
-    # Plot dissimilar pairs
-    for idx, (i, j, dist) in enumerate(dissimilar_pairs, 1):
-        ax1.plot([z_2d[i, 0], z_2d[j, 0]], [z_2d[i, 1], z_2d[j, 1]], 
-                'r--', linewidth=2, alpha=0.7)
-        ax1.scatter([z_2d[i, 0], z_2d[j, 0]], [z_2d[i, 1], z_2d[j, 1]], 
-                   c='red', s=100, marker='s', edgecolors='black', linewidth=2,
-                   label=f'Dissimilar pair {idx}' if idx == 1 else '')
+    ax.set_xlim(x_min - margin, x_max + margin)
+    ax.set_ylim(y_min - margin, y_max + margin)
+    ax.set_xlabel('PC1', fontsize=14)
+    ax.set_ylabel('PC2', fontsize=14)
+    ax.set_title('PCA of Latent Vectors (2D) with Images', fontsize=16)
+    ax.grid(False)
     
-    ax1.set_xlabel('PC1', fontsize=12)
-    ax1.set_ylabel('PC2', fontsize=12)
-    ax1.set_title('Latent Space (PCA) with Similar/Dissimilar Pairs', fontsize=14)
-    ax1.legend(loc='best')
-    ax1.grid(True, alpha=0.3)
-    
-    # Plot 2: Show example images from pairs
-    ax2.axis('off')
-    
-    # Create a grid showing the pairs
-    pair_images = []
-    labels = []
-    
-    for idx, (i, j, dist) in enumerate(similar_pairs, 1):
-        pair_images.extend([generated_images[i].cpu(), generated_images[j].cpu()])
-        labels.extend([f'Sim{idx}a', f'Sim{idx}b'])
-    
-    for idx, (i, j, dist) in enumerate(dissimilar_pairs, 1):
-        pair_images.extend([generated_images[i].cpu(), generated_images[j].cpu()])
-        labels.extend([f'Dis{idx}a', f'Dis{idx}b'])
-    
-    # Create sub-grid for images
-    grid_size = 6  # 3 similar + 3 dissimilar = 6 pairs = 12 images
-    sub_grid = fig.add_axes([0.55, 0.1, 0.4, 0.8])
-    sub_grid.axis('off')
-    
-    rows, cols = 6, 2
-    for idx, (img, label) in enumerate(zip(pair_images, labels)):
-        ax_img = fig.add_subplot(rows, cols, idx + 7)  # Start after first 6 subplot positions
-        img_np = img.permute(1, 2, 0).numpy()
-        ax_img.imshow(img_np)
-        ax_img.set_title(label, fontsize=8)
-        ax_img.axis('off')
-    
-    plt.suptitle('Latent Space Analysis: Similar vs Dissimilar Image Pairs', 
-                fontsize=16, y=0.98)
-    
-    # Save the plot
+    # Save figure
     analysis_path = os.path.join(out_dir, "latent_space_analysis.png")
     plt.savefig(analysis_path, dpi=150, bbox_inches='tight')
     print(f"Saved latent space analysis to {analysis_path}")
+    
     plt.show()
-    plt.close()
+    plt.close('all')
     
-    print("\nSimilar pairs (small L2 distance):")
-    for idx, (i, j, dist) in enumerate(similar_pairs, 1):
-        print(f"  Pair {idx}: Images {i}-{j}, L2 = {dist:.4f}")
-    
-    print("\nDissimilar pairs (large L2 distance):")
-    for idx, (i, j, dist) in enumerate(dissimilar_pairs, 1):
-        print(f"  Pair {idx}: Images {i}-{j}, L2 = {dist:.4f}")
+    print(f"\nGenerated and plotted {num_images} images using PCA coordinates")
 
 
 # ============================================================
