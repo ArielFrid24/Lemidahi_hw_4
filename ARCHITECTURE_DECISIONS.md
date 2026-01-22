@@ -288,8 +288,8 @@ gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
 
 | Component | Value | Rationale |
 |-----------|-------|-----------|
-| Generator channels | 512 | Balance between capacity and memory |
-| Discriminator channels | 512 | Match generator capacity |
+| Generator channels | 1024 | High capacity for better representational power |
+| Discriminator channels | 1024 | Match generator capacity |
 | Latent dimension | 100 | Standard, sufficient for flower diversity |
 | Batch size | 32 | GPU memory constraints, WGAN-GP stability |
 | Learning rate | 2e-4 | Stable convergence for both networks |
@@ -297,6 +297,8 @@ gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
 | Adam β₂ | 0.9 | Adaptive learning rate |
 | Gradient penalty λ | 10.0 | Standard WGAN-GP value |
 | Image size | 64×64 | Balance between detail and training speed |
+| Epochs | 60 | Extended training for better convergence |
+| LR Scheduler | CosineAnnealing | Gradual decay for fine-tuning |
 
 ---
 
@@ -383,10 +385,14 @@ epochs: int = 100  # from 40
 
 ## Quick Wins (Implement These First)
 
-1. **Increase channels to 1024** - Minimal code change, significant impact
-2. **Add ColorJitter and RandomRotation** - One line each in transforms
-3. **Add learning rate scheduler** - Two lines after optimizer creation
-4. **Train for 60-80 epochs** - Just change config value
+### ✅ Implemented
+1. **Increase channels to 1024** - Minimal code change, significant impact ✅
+2. **Add learning rate scheduler** - Two lines after optimizer creation ✅
+3. **Train for 60 epochs** - Just change config value ✅
+
+### 🔄 Available for Future Implementation
+4. **Add ColorJitter and RandomRotation** - One line each in transforms (currently not included)
+5. **Train for 80+ epochs** - Further extended training for even better results
 
 ## Advanced Improvements (For Maximum Quality)
 

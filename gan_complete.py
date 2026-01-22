@@ -45,7 +45,7 @@ class Config:
     img_size: int = 64
     batch_size: int = 32  # Smaller batch for more stable gradients
     num_workers: int = 2
-    epochs: int = 40
+    epochs: int = 60
     
     # Model architecture
     z_dim: int = 100  # Standard latent dimension
@@ -340,7 +340,7 @@ class Generator(nn.Module):
     This architecture provides more capacity and better results.
     """
     
-    def __init__(self, z_dim: int = 100, g_channels: int = 512):
+    def __init__(self, z_dim: int = 100, g_channels: int = 1024):
         """
         Initialize the Generator.
         
@@ -413,7 +413,7 @@ class Discriminator(nn.Module):
     Architecture uses strided convolutions to progressively downsample.
     """
     
-    def __init__(self, d_channels: int = 512):
+    def __init__(self, d_channels: int = 1024):
         """
         Initialize the Discriminator.
         
@@ -559,6 +559,10 @@ def train_gan(generator: Generator, discriminator: Discriminator,
         betas=config.betas
     )
     
+    # Learning rate schedulers for better convergence
+    scheduler_G = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_G, T_max=config.epochs)
+    scheduler_D = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_D, T_max=config.epochs)
+    
     # Fixed noise for consistent visualization
     fixed_noise = torch.randn(config.n_sample_images, config.z_dim, 
                              device=config.device)
@@ -655,6 +659,10 @@ def train_gan(generator: Generator, discriminator: Discriminator,
                 figsize=(10, 10),
                 show=True
             )
+        
+        # Step learning rate schedulers
+        scheduler_G.step()
+        scheduler_D.step()
     
     print(f"\nTraining complete!")
     
